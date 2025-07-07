@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Healthcare Mock Interview System",
-  description: "A comprehensive healthcare application with AI-powered mock interviews",
+  title: "InterviewAI - AI-Powered Mock Interview Platform",
+  description: "Practice interviews with AI for various tech roles. Get real-time feedback and improve your interview skills.",
 };
 
 export default function RootLayout({

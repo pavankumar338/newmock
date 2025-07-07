@@ -37,8 +37,8 @@ const Navbar = () => {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <div className="flex-shrink-0">
-            <Link href="/" className="text-2xl font-bold text-gray-900 hover:text-blue-600 transition-colors">
-              HealthCare
+            <Link href="/" className="text-2xl font-bold text-gray-900 hover:text-purple-600 transition-colors">
+              InterviewAI
             </Link>
           </div>
 
@@ -58,11 +58,11 @@ const Navbar = () => {
                 <button
                   onClick={handleSignIn}
                   disabled={isLoading}
-                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                  className="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
                 >
                   {isLoading ? 'Signing In...' : 'Sign In'}
                 </button>
-                <button className="text-gray-700 hover:text-blue-600 px-4 py-2 rounded-md text-sm font-medium border border-gray-300 hover:border-blue-600 transition-colors">
+                <button className="text-gray-700 hover:text-purple-600 px-4 py-2 rounded-md text-sm font-medium border border-gray-300 hover:border-purple-600 transition-colors">
                   Sign Up
                 </button>
               </div>
@@ -95,10 +95,10 @@ const Navbar = () => {
 
           {/* Mobile menu button */}
           <div className="md:hidden">
-            <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="text-gray-700 hover:text-blue-600 inline-flex items-center justify-center p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
-            >
+                          <button
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="text-gray-700 hover:text-purple-600 inline-flex items-center justify-center p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-inset focus:ring-purple-500"
+              >
               {isMenuOpen ? (
                 <X className="block h-6 w-6" />
               ) : (
@@ -113,21 +113,21 @@ const Navbar = () => {
       {isMenuOpen && (
         <div className="md:hidden">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-gray-50">
-            <Link href="/" className="text-gray-700 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium">
+            <Link href="/" className="text-gray-700 hover:text-purple-600 block px-3 py-2 rounded-md text-base font-medium">
               Home
             </Link>
             {user && (
-              <Link href="/" className="text-gray-700 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium">
+              <Link href="/" className="text-gray-700 hover:text-purple-600 block px-3 py-2 rounded-md text-base font-medium">
                 Dashboard
               </Link>
             )}
-            <a href="#" className="text-gray-700 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium">
+            <a href="#" className="text-gray-700 hover:text-purple-600 block px-3 py-2 rounded-md text-base font-medium">
               About
             </a>
-            <a href="#" className="text-gray-700 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium">
-              Services
+            <a href="#" className="text-gray-700 hover:text-purple-600 block px-3 py-2 rounded-md text-base font-medium">
+              Roles
             </a>
-            <a href="#" className="text-gray-700 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium">
+            <a href="#" className="text-gray-700 hover:text-purple-600 block px-3 py-2 rounded-md text-base font-medium">
               Contact
             </a>
             
@@ -138,11 +138,11 @@ const Navbar = () => {
                   <button
                     onClick={handleSignIn}
                     disabled={isLoading}
-                    className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-3 py-2 rounded-md text-base font-medium transition-colors"
+                    className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white px-3 py-2 rounded-md text-base font-medium transition-colors"
                   >
                     {isLoading ? 'Signing In...' : 'Sign In'}
                   </button>
-                  <button className="w-full text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-base font-medium border border-gray-300 hover:border-blue-600 transition-colors">
+                  <button className="w-full text-gray-700 hover:text-purple-600 px-3 py-2 rounded-md text-base font-medium border border-gray-300 hover:border-purple-600 transition-colors">
                     Sign Up
                   </button>
                 </div>

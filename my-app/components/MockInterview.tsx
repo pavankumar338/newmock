@@ -45,7 +45,7 @@ const MockInterview = () => {
   const [isVideoRecording, setIsVideoRecording] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [currentSession, setCurrentSession] = useState<InterviewSession | null>(null);
-  const [selectedRole, setSelectedRole] = useState('nurse');
+  const [selectedRole, setSelectedRole] = useState('frontend');
   const [selectedLevel, setSelectedLevel] = useState('entry');
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedback, setFeedback] = useState('');
@@ -65,13 +65,17 @@ const MockInterview = () => {
   const audioChunksRef = useRef<Blob[]>([]);
   const videoChunksRef = useRef<Blob[]>([]);
   const recognitionRef = useRef<any>(null);
+  const [fullTranscript, setFullTranscript] = useState('');
+  const fullTranscriptRef = useRef('');
+  let recognitionRestartAttempts = 0;
+  const MAX_RESTART_ATTEMPTS = 5;
 
   const roles = [
-    { value: 'nurse', label: 'Registered Nurse' },
-    { value: 'doctor', label: 'Medical Doctor' },
-    { value: 'pharmacist', label: 'Pharmacist' },
-    { value: 'therapist', label: 'Physical Therapist' },
-    { value: 'technician', label: 'Medical Technician' }
+    { value: 'frontend', label: 'Frontend Developer' },
+    { value: 'react', label: 'React Developer' },
+    { value: 'ui', label: 'UI Engineer' },
+    { value: 'ux', label: 'UX Designer' },
+    { value: 'web', label: 'Web Developer' }
   ];
 
   const levels = [
@@ -87,6 +91,10 @@ const MockInterview = () => {
   useEffect(() => {
     scrollToBottom();
   }, [currentSession?.messages]);
+
+  useEffect(() => {
+    fullTranscriptRef.current = fullTranscript;
+  }, [fullTranscript]);
 
   const startNewInterview = () => {
     console.log('Starting new interview...'); // Debug log
@@ -117,11 +125,11 @@ const MockInterview = () => {
 
   const getInitialGreeting = (role: string, level: string) => {
     const roleLabels: Record<string, string> = {
-      nurse: 'Registered Nurse',
-      doctor: 'Medical Doctor',
-      pharmacist: 'Pharmacist',
-      therapist: 'Physical Therapist',
-      technician: 'Medical Technician'
+      frontend: 'Frontend Developer',
+      react: 'React Developer',
+      ui: 'UI Engineer',
+      ux: 'UX Designer',
+      web: 'Web Developer'
     };
 
     const levelLabels: Record<string, string> = {
@@ -130,11 +138,7 @@ const MockInterview = () => {
       senior: 'senior-level'
     };
 
-    return `Hello! I&apos;m your mock interview interviewer for a ${levelLabels[level]} ${roleLabels[role]} position. I&apos;ll be asking you questions to assess your knowledge, experience, and fit for the role. 
-
-Let&apos;s begin with some questions about your background and experience. Please answer as you would in a real interview setting.
-
-What motivated you to pursue a career in healthcare, specifically as a ${levelLabels[level]} ${roleLabels[role]}?`;
+    return `Hello! I'm your mock interview interviewer for a ${levelLabels[level]} ${roleLabels[role]} position. I'll be asking you questions to assess your knowledge, experience, and fit for the role.\n\nLet's begin with some questions about your background and experience. Please answer as you would in a real interview setting.\n\nWhat motivated you to pursue a career in frontend development, specifically as a ${levelLabels[level]} ${roleLabels[role]}?`;
   };
 
   const sendMessage = async (content: string) => {
@@ -179,7 +183,7 @@ What motivated you to pursue a career in healthcare, specifically as a ${levelLa
       const fallbackMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: "I apologize, but I&apos;m having trouble processing your response right now. Could you please try again?",
+        content: "I apologize, but I'm having trouble processing your response right now. Could you please try again?",
         timestamp: new Date()
       };
 
@@ -398,19 +402,19 @@ Conversation so far:
         };
 
         recognitionRef.current.onresult = (event: any) => {
-          let finalTranscript = '';
+          let fullFinalTranscript = '';
           let interimTranscript = '';
-
-          for (let i = event.resultIndex; i < event.results.length; i++) {
+          for (let i = 0; i < event.results.length; i++) {
             const transcript = event.results[i][0].transcript;
             if (event.results[i].isFinal) {
-              finalTranscript += transcript;
+              fullFinalTranscript += transcript;
             } else {
               interimTranscript += transcript;
             }
           }
-
-          setTranscribedText(finalTranscript + interimTranscript);
+          fullTranscriptRef.current = fullFinalTranscript;
+          setFullTranscript(fullFinalTranscript);
+          setTranscribedText(fullFinalTranscript + interimTranscript);
         };
 
         recognitionRef.current.onerror = (event: any) => {
@@ -424,6 +428,24 @@ Conversation so far:
         recognitionRef.current.onend = () => {
           setIsListening(false);
           console.log('Speech recognition ended');
+          // Auto-restart if user did not manually stop, with timeout and error handling
+          if (isListening && recognitionRef.current) {
+            if (recognitionRestartAttempts < MAX_RESTART_ATTEMPTS) {
+              setTimeout(() => {
+                try {
+                  recognitionRef.current.start();
+                  setIsListening(true);
+                  recognitionRestartAttempts++;
+                } catch (err) {
+                  console.warn('Recognition restart error:', err);
+                }
+              }, 300);
+            } else {
+              console.warn('Max recognition restart attempts reached.');
+            }
+          } else {
+            recognitionRestartAttempts = 0;
+          }
         };
       } else {
         console.error('Speech recognition not supported in this browser');
@@ -440,17 +462,21 @@ Conversation so far:
     if (recognitionRef.current) {
       if (isListening) {
         recognitionRef.current.stop();
+        recognitionRestartAttempts = 0;
       } else {
-        setTranscribedText('');
+        recognitionRestartAttempts = 0;
         recognitionRef.current.start();
+        setIsListening(true);
       }
     }
   };
 
   const sendTranscribedMessage = () => {
-    if (transcribedText.trim()) {
-      sendMessage(transcribedText);
+    if (fullTranscriptRef.current.trim()) {
+      sendMessage(fullTranscriptRef.current.trim());
       setTranscribedText('');
+      setFullTranscript('');
+      fullTranscriptRef.current = '';
       if (recognitionRef.current && isListening) {
         recognitionRef.current.stop();
       }
@@ -523,21 +549,21 @@ Conversation so far:
     const userMessages = session.messages.filter(msg => msg.role === 'user');
     const assistantMessages = session.messages.filter(msg => msg.role === 'assistant');
     
-    const categories = ['Communication', 'Technical Knowledge', 'Problem Solving', 'Professionalism', 'Experience'];
+    const categories = ['Communication', 'Technical Knowledge', 'Problem Solving', 'Collaboration', 'Experience'];
     const sampleExpectedAnswers = [
-      "I was motivated by a desire to help others and make a positive impact on people&apos;s lives through healthcare.",
-      "I handled the situation by remaining calm, following protocols, and communicating effectively with the team.",
-      "I stay updated through continuing education, professional journals, and attending conferences.",
-      "I managed the situation by listening to concerns, finding common ground, and focusing on patient care.",
-      "My long-term goals include advancing my skills, taking on leadership roles, and contributing to healthcare innovation."
+      "I was motivated by a passion for building user interfaces and creating seamless web experiences.",
+      "I handled a challenging bug by debugging with browser dev tools, researching the issue, and collaborating with my team.",
+      "I stay updated through tech blogs, documentation, and contributing to open source projects.",
+      "I managed a project by using version control, clear communication, and agile methodologies.",
+      "My long-term goals include mastering modern frameworks, leading frontend teams, and contributing to innovative web products."
     ];
     
     return userMessages.map((userMsg, index) => ({
       question: assistantMessages[index]?.content || `Question ${index + 1}`,
       userAnswer: userMsg.content,
-      expectedAnswer: sampleExpectedAnswers[index] || "A comprehensive answer demonstrating knowledge and experience",
+      expectedAnswer: sampleExpectedAnswers[index] || "A comprehensive answer demonstrating frontend knowledge and experience",
       rating: Math.floor(Math.random() * 3) + 3, // Random rating between 3-5
-      feedback: `Good response showing ${categories[index % categories.length].toLowerCase()}. Consider providing more specific examples.`,
+      feedback: `Good response showing ${categories[index % categories.length].toLowerCase()}. Consider providing more specific examples related to frontend development.`,
       category: categories[index % categories.length]
     }));
   };
@@ -605,18 +631,22 @@ Conversation so far:
   return (
     <div className="max-w-4xl mx-auto p-6">
       {/* Dr. Smith Header */}
-      <div className="flex items-center space-x-4 mb-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
-        <div className="flex-shrink-0">
-          <img
-            src="https://randomuser.me/api/portraits/men/32.jpg"
-            alt="Dr. Smith"
-            className="w-14 h-14 rounded-full border-2 border-blue-300 shadow"
-          />
-        </div>
-        <div>
-          <div className="text-lg font-bold text-blue-900">Dr. Smith</div>
-          <div className="text-sm text-blue-700">Senior Healthcare Interviewer</div>
-          <div className="text-xs text-blue-500">AI Agent</div>
+      <div className="max-w-2xl mx-auto p-4">
+        <div className="flex items-center space-x-4 mb-4 p-4 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl shadow">
+          <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="Dr. Smith" className="w-16 h-16 rounded-full border-4 border-white shadow" />
+          <div>
+            <div className="text-xl font-bold text-white">Dr. Smith</div>
+            <div className="text-sm text-blue-100">Senior Healthcare Interviewer</div>
+            <div className="text-xs text-blue-200">AI Agent</div>
+          </div>
+          <div className="ml-auto flex items-center space-x-2">
+            <div className={`w-3 h-3 rounded-full ${process.env.NEXT_PUBLIC_GEMINI_API_KEY && process.env.NEXT_PUBLIC_GEMINI_API_KEY !== 'your_gemini_api_key_here' ? 'bg-green-400' : 'bg-yellow-400'}`}></div>
+            <span className="text-xs text-white">
+              {process.env.NEXT_PUBLIC_GEMINI_API_KEY && process.env.NEXT_PUBLIC_GEMINI_API_KEY !== 'your_gemini_api_key_here' 
+                ? 'AI Powered' 
+                : 'Demo Mode'}
+            </span>
+          </div>
         </div>
       </div>
       <div className="bg-white rounded-lg shadow-lg overflow-hidden">
@@ -702,264 +732,89 @@ Conversation so far:
 
         {/* Interview Session */}
         {currentSession && !showFeedback && (
-          <div className="flex flex-col h-96">
-            {/* Video Interface */}
-            <div className="p-4 bg-gray-50 border-b border-gray-200">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-sm font-medium text-gray-700">Video & Audio Recording</h4>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={toggleRecording}
-                    className={`p-2 rounded-full ${
-                      isRecording ? 'bg-red-500 text-white' : 'bg-gray-500 text-white'
-                    } hover:bg-opacity-80 transition-colors`}
-                    title={isRecording ? 'Stop Audio Recording' : 'Start Audio Recording'}
-                  >
-                    {isRecording ? <MicOff size={16} /> : <Mic size={16} />}
-                  </button>
-                  <button
-                    onClick={toggleVideoRecording}
-                    className={`p-2 rounded-full ${
-                      isVideoRecording ? 'bg-red-500 text-white' : 'bg-blue-500 text-white'
-                    } hover:bg-opacity-80 transition-colors`}
-                    title={isVideoRecording ? 'Stop Video Recording' : 'Start Video Recording'}
-                  >
-                    {isVideoRecording ? <VideoOff size={16} /> : <Video size={16} />}
-                  </button>
-                  {recordedUrl && (
-                    <>
-                      <button
-                        onClick={playRecording}
-                        className="p-2 bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors"
-                        title="Play Recording"
-                      >
-                        <Play size={16} />
-                      </button>
-                      <button
-                        onClick={deleteRecording}
-                        className="p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
-                        title="Delete Recording"
-                      >
-                        <RotateCcw size={16} />
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-              
-              <div className="relative">
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  muted
-                  playsInline
-                  className="w-full h-32 bg-black rounded-lg object-cover"
-                />
-                {isVideoRecording && (
-                  <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-xs">
-                    REC
+          <div className="bg-white rounded-2xl shadow-lg p-6 flex flex-col min-h-[70vh]">
+            {/* Chat Area */}
+            <div className="flex-1 overflow-y-auto mb-4">
+              <div className="space-y-6">
+                {currentSession.messages.map((message, idx) => (
+                  <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}> 
+                    <div className={`max-w-[75%] ${message.role === 'user' ? 'ml-auto' : ''}`}> 
+                      <div className={`flex items-center mb-1 ${message.role === 'user' ? 'justify-end' : ''}`}> 
+                        {message.role === 'assistant' && (
+                          <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="Dr. Smith" className="w-8 h-8 rounded-full border-2 border-blue-300 mr-2" />
+                        )}
+                        {message.role === 'user' && (
+                          <div className="w-8 h-8 rounded-full bg-blue-200 flex items-center justify-center text-blue-700 font-bold mr-2">You</div>
+                        )}
+                        <span className="text-xs text-gray-400">{new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                      <div className={`rounded-2xl px-4 py-3 text-base ${message.role === 'user' ? 'bg-blue-100 text-blue-900' : 'bg-gray-100 text-gray-800'}`}>{message.content}</div>
+                    </div>
+                  </div>
+                ))}
+                {isLoading && (
+                  <div className="flex justify-start">
+                    <div className="max-w-[75%]">
+                      <div className="flex items-center mb-1">
+                        <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="Dr. Smith" className="w-8 h-8 rounded-full border-2 border-blue-300 mr-2" />
+                        <span className="text-xs text-gray-400">...</span>
+                      </div>
+                      <div className="rounded-2xl px-4 py-3 bg-gray-100 text-gray-800 animate-pulse">Dr. Smith is thinking...</div>
+                    </div>
                   </div>
                 )}
-              </div>
-            </div>
-            {/* Interview Transcript */}
-            <div className="flex-1 overflow-y-auto p-6 bg-white">
-              <div className="max-w-4xl mx-auto">
-                {/* Interview Header */}
-                <div className="text-center mb-6 pb-4 border-b border-gray-200">
-                  <h2 className="text-xl font-semibold text-gray-800">Mock Interview Transcript</h2>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {roles.find(r => r.value === selectedRole)?.label} • {levels.find(l => l.value === selectedLevel)?.label} • {new Date().toLocaleDateString()}
-                  </p>
-                </div>
-
-                {/* Interview Messages */}
-                <div className="space-y-6">
-                  {currentSession.messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div className="max-w-[70%]">
-                        {message.role === 'assistant' && (
-                          <div className="flex items-center mb-2">
-                            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mr-3">
-                              <span className="text-white text-sm font-bold">DS</span>
-                            </div>
-                            <div>
-                              <div className="font-semibold text-gray-800">Dr. Smith</div>
-                              <div className="text-xs text-gray-500">Interviewer</div>
-                            </div>
-                          </div>
-                        )}
-                        
-                        <div
-                          className={`rounded-lg p-4 ${
-                            message.role === 'user'
-                              ? 'bg-blue-50 border-l-4 border-blue-500 text-gray-800'
-                              : 'bg-gray-50 border-l-4 border-gray-400 text-gray-800'
-                          }`}
-                        >
-                          <div className="whitespace-pre-wrap leading-relaxed">{message.content}</div>
-                        </div>
-                        
-                        {message.role === 'user' && (
-                          <div className="text-right mt-1">
-                            <div className="text-xs text-gray-500">You</div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {isLoading && (
-                    <div className="flex justify-start">
-                      <div className="max-w-[70%]">
-                        <div className="flex items-center mb-2">
-                          <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mr-3">
-                            <span className="text-white text-sm font-bold">DS</span>
-                          </div>
-                          <div>
-                            <div className="font-semibold text-gray-800">Dr. Smith</div>
-                            <div className="text-xs text-gray-500">Interviewer</div>
-                          </div>
-                        </div>
-                        
-                        <div className="bg-gray-50 border-l-4 border-gray-400 rounded-lg p-4">
-                          <div className="flex items-center space-x-3">
-                            <div className="flex space-x-1">
-                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                            </div>
-                            <span className="text-gray-600">Dr. Smith is listening and thinking...</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
               </div>
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Voice Interview Interface */}
-            <div className="border-t border-gray-200 p-6 bg-gray-50">
-              <div className="text-center">
-                {/* Voice Controls */}
-                <div className="flex justify-center items-center space-x-4 mb-4">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm text-gray-600">Dr. Smith Voice:</span>
-                    <button
-                      onClick={() => setVoiceEnabled(!voiceEnabled)}
-                      className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                        voiceEnabled 
-                          ? 'bg-green-100 text-green-800 border border-green-300' 
-                          : 'bg-gray-100 text-gray-600 border border-gray-300'
-                      }`}
-                    >
-                      {voiceEnabled ? 'ON' : 'OFF'}
-                    </button>
-                  </div>
-                </div>
-                
-                <div className="mb-4">
-                  <div className="flex justify-center mb-4">
-                    <button
-                      onClick={toggleSpeechRecognition}
-                      className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 ${
-                        isListening 
-                          ? 'bg-red-500 text-white shadow-lg scale-110' 
-                          : 'bg-blue-500 text-white hover:bg-blue-600 shadow-md'
-                      }`}
-                      title={isListening ? 'Stop Speaking' : 'Click to Speak'}
-                    >
-                      {isListening ? <MicOff size={32} /> : <Mic size={32} />}
-                    </button>
-                  </div>
-                  
-                  <div className="text-lg font-medium text-gray-700 mb-2">
-                    {isListening ? 'Speak Now - Dr. Smith is Listening' : 'Click the microphone to speak your answer'}
-                  </div>
-                  
-                  {isListening && (
-                    <div className="flex items-center justify-center space-x-2 text-red-600">
-                      <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                      <span className="text-sm font-medium">LIVE</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Speech Status */}
-                {isListening && (
-                  <div className="bg-white rounded-lg p-4 mb-4 border border-blue-200">
-                    <div className="text-sm text-gray-600 mb-2">What you&apos;re saying:</div>
-                    <div className="text-lg text-gray-800 font-medium">
-                      {transcribedText || 'Listening...'}
-                    </div>
-                  </div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="flex justify-center space-x-4">
-                  {isListening && transcribedText && (
-                    <button
-                      onClick={sendTranscribedMessage}
-                      className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium"
-                    >
-                      Send Answer
-                    </button>
-                  )}
-                  
-                  {isListening && (
-                    <button
-                      onClick={() => {
-                        if (recognitionRef.current) {
-                          recognitionRef.current.stop();
-                        }
-                        setTranscribedText('');
-                      }}
-                      className="px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium"
-                    >
-                      Cancel
-                    </button>
-                  )}
-                </div>
-
-                {/* Instructions */}
-                <div className="mt-4 text-sm text-gray-500">
-                  <p>💡 Speak naturally as if you&apos;re in a real interview with Dr. Smith</p>
-                  <p>🎤 Your voice will be converted to text automatically</p>
-                </div>
+            {/* Voice Answer Section */}
+            <div className="bg-gray-50 rounded-xl p-4 flex flex-col items-center shadow-inner">
+              <div className="mb-2 text-center text-gray-700 font-medium">Speak your answer below</div>
+              <button
+                onClick={toggleSpeechRecognition}
+                className={`w-20 h-20 rounded-full flex items-center justify-center text-3xl transition-all duration-300 shadow-lg mb-3 border-4 ${isListening ? 'bg-red-500 text-white border-red-300 animate-pulse' : 'bg-blue-500 text-white border-blue-300 hover:bg-blue-600'}`}
+                title={isListening ? 'Stop Listening' : 'Click to Speak'}
+              >
+                {isListening ? <MicOff size={40} /> : <Mic size={40} />}
+              </button>
+              <div className="w-full max-w-xl min-h-[48px] bg-white border border-blue-200 rounded-lg px-4 py-3 mb-2 text-lg text-gray-800 text-center">
+                {transcribedText || fullTranscript || (isListening ? 'Listening...' : 'Click the mic and start speaking')}
               </div>
+              <div className="flex space-x-3 mt-2">
+                <button
+                  onClick={sendTranscribedMessage}
+                  className="px-5 py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 transition-colors"
+                  disabled={!fullTranscript.trim()}
+                >
+                  Send Answer
+                </button>
+                <button
+                  onClick={() => { setTranscribedText(''); setFullTranscript(''); fullTranscriptRef.current = ''; }}
+                  className="px-5 py-2 bg-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-400 transition-colors"
+                  disabled={!fullTranscript.trim() && !transcribedText.trim()}
+                >
+                  Clear
+                </button>
+              </div>
+              <div className="mt-2 text-xs text-gray-500">Your answer will be sent to Dr. Smith. You can continue speaking to add more, or clear to start over.</div>
             </div>
 
             {/* Controls */}
-            <div className="border-t border-gray-200 p-4 bg-gray-50">
-              <div className="flex justify-between items-center">
-                <div className="text-sm text-gray-600">
-                  Interview for {roles.find(r => r.value === selectedRole)?.label} - {levels.find(l => l.value === selectedLevel)?.label}
-                </div>
-                
-                <div className="flex space-x-2">
-                  {currentSession.isActive ? (
-                    <button
-                      onClick={endInterview}
-                      className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm"
-                    >
-                      End Interview
-                    </button>
-                  ) : (
-                    <button
-                      onClick={resetInterview}
-                      className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm flex items-center space-x-1"
-                    >
-                      <RotateCcw size={16} />
-                      <span>New Interview</span>
-                    </button>
-                  )}
-                </div>
-              </div>
+            <div className="flex justify-between items-center mt-6">
+              <button
+                onClick={endInterview}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm"
+                disabled={!currentSession.isActive}
+              >
+                End Interview
+              </button>
+              <button
+                onClick={resetInterview}
+                className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm flex items-center space-x-1"
+              >
+                <RotateCcw size={16} />
+                <span>New Interview</span>
+              </button>
             </div>
           </div>
         )}

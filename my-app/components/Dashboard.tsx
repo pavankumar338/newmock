@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Calendar, Users, Activity, MessageSquare, Settings, Home, Target, Award, Clock } from 'lucide-react'
+import { Calendar, Users, MessageSquare, Settings, Home, Target, Award, Clock } from 'lucide-react'
 import MockInterview from './MockInterview'
 
 const Dashboard = () => {
@@ -8,7 +8,6 @@ const Dashboard = () => {
   const tabs = [
     { id: 'overview', label: 'Overview', icon: Home },
     { id: 'practice', label: 'Practice Sessions', icon: Calendar },
-    { id: 'progress', label: 'Progress', icon: Activity },
     { id: 'analytics', label: 'Analytics', icon: Target },
     { id: 'interview', label: 'Mock Interview', icon: MessageSquare },
     { id: 'settings', label: 'Settings', icon: Settings }
@@ -94,12 +93,12 @@ const Dashboard = () => {
                 </button>
                 
                 <button 
-                  onClick={() => setActiveTab('progress')}
+                  onClick={() => setActiveTab('analytics')}
                   className="p-4 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors text-left"
                 >
-                  <Activity className="w-8 h-8 text-blue-600 mb-2" />
-                  <h4 className="font-medium text-gray-900">Track Progress</h4>
-                  <p className="text-sm text-gray-600">Monitor your improvement</p>
+                  <Target className="w-8 h-8 text-blue-600 mb-2" />
+                  <h4 className="font-medium text-gray-900">View Analytics</h4>
+                  <p className="text-sm text-gray-600">Performance insights</p>
                 </button>
               </div>
             </div>
@@ -142,43 +141,6 @@ const Dashboard = () => {
             </div>
           </div>
         )
-      case 'progress':
-        return (
-          <div className="p-6">
-            <h2 className="text-2xl font-bold mb-6">Progress Tracking</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold mb-4">Performance by Role</h3>
-                <div className="text-center py-8">
-                  <Target className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500 text-sm">No performance data available</p>
-                  <p className="text-gray-400 text-xs mt-1">Complete interviews to see your performance metrics</p>
-                </div>
-              </div>
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold mb-4">Practice Statistics</h3>
-                <div className="space-y-4">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Total Sessions</span>
-                    <span className="text-sm font-medium">0</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Average Score</span>
-                    <span className="text-sm font-medium">-</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Total Practice Time</span>
-                    <span className="text-sm font-medium">0 hours</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Roles Practiced</span>
-                    <span className="text-sm font-medium">0</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )
       case 'analytics':
         return (
           <div className="p-6">
@@ -186,7 +148,7 @@ const Dashboard = () => {
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold mb-4">Interview Performance Analytics</h3>
               <div className="text-center py-12">
-                <Activity className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <Target className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-500 text-lg mb-2">Analytics coming soon</p>
                 <p className="text-gray-400 text-sm">Detailed insights and performance analytics will be available after you complete your first interview</p>
               </div>

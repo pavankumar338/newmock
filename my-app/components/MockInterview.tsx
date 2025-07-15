@@ -2,6 +2,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, MicOff, Send, RotateCcw, Play, Pause, Star, MessageSquare, Video, VideoOff, Camera, UserCircle, Bot } from 'lucide-react';
 import { GeminiService, getFallbackResponse, testGeminiAPI } from '@/lib/gemini';
+import { createPracticeSession, PracticeSessionData, createPracticeSummary } from '@/lib/firebase';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Type declarations for speech recognition
 declare global {
@@ -41,6 +43,7 @@ interface QuestionFeedback {
 }
 
 const MockInterview = () => {
+  const { user } = useAuth();
   const [isRecording, setIsRecording] = useState(false);
   const [isVideoRecording, setIsVideoRecording] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -69,6 +72,8 @@ const MockInterview = () => {
   const fullTranscriptRef = useRef('');
   let recognitionRestartAttempts = 0;
   const MAX_RESTART_ATTEMPTS = 5;
+  // 1. Add state for save status
+  const [saveStatus, setSaveStatus] = useState<string>('');
 
   const roles = [
     { value: 'frontend', label: 'Frontend Developer' },
@@ -97,30 +102,31 @@ const MockInterview = () => {
   }, [fullTranscript]);
 
   const startNewInterview = () => {
-    console.log('Starting new interview...'); // Debug log
-    const session: InterviewSession = {
-      id: Date.now().toString(),
-      role: selectedRole,
-      level: selectedLevel,
-      messages: [],
-      startTime: new Date(),
-      isActive: true
-    };
+    resetInterview(); // Stop previous interview and reset state
+    // Delay to ensure state is reset before starting new session
+    setTimeout(() => {
+      const session: InterviewSession = {
+        id: Date.now().toString(),
+        role: selectedRole,
+        level: selectedLevel,
+        messages: [],
+        startTime: new Date(),
+        isActive: true
+      };
 
-    // Add initial greeting
-    const greeting = getInitialGreeting(selectedRole, selectedLevel);
-    console.log('Initial greeting:', greeting); // Debug log
-    session.messages.push({
-      id: '1',
-      role: 'assistant',
-      content: greeting,
-      timestamp: new Date()
-    });
+      // Add initial greeting
+      const greeting = getInitialGreeting(selectedRole, selectedLevel);
+      session.messages.push({
+        id: '1',
+        role: 'assistant',
+        content: greeting,
+        timestamp: new Date()
+      });
 
-    setCurrentSession(session);
-    
-    // Speak the initial greeting
-    speak(greeting);
+      setCurrentSession(session);
+      // Speak the initial greeting
+      speak(greeting);
+    }, 0);
   };
 
   const getInitialGreeting = (role: string, level: string) => {
@@ -528,17 +534,62 @@ Conversation so far:
         
         const overallFeedback = await geminiService.generateInterviewFeedback(context);
         setFeedback(overallFeedback);
+
+        // Save session data to Firebase
+        if (user && currentSession) {
+          // Calculate performance metrics
+          const totalRating = feedbackResults.reduce((sum, item) => sum + item.rating, 0);
+          const averageRating = totalRating / feedbackResults.length;
+          const strongAnswers = feedbackResults.filter(item => item.rating >= 4).length;
+          const needImprovement = feedbackResults.filter(item => item.rating <= 3).length;
+          
+          // Calculate category totals
+          const categories = {
+            Communication: 0,
+            TechnicalKnowledge: 0,
+            ProblemSolving: 0,
+            Collaboration: 0,
+            Experience: 0
+          };
+          
+          feedbackResults.forEach(item => {
+            if (categories.hasOwnProperty(item.category as keyof typeof categories)) {
+              categories[item.category as keyof typeof categories] += item.rating;
+            }
+          });
+          
+          const sessionData: Omit<PracticeSessionData, 'id' | 'createdAt' | 'updatedAt'> = {
+            userId: user.uid,
+            role: currentSession.role,
+            level: currentSession.level,
+            startTime: currentSession.startTime,
+            endTime: new Date(),
+            duration: Math.round((new Date().getTime() - currentSession.startTime.getTime()) / 60000), // Duration in minutes
+            totalQuestions: feedbackResults.length,
+            averageRating: Math.round(averageRating * 10) / 10, // Round to 1 decimal place
+            performanceSummary: {
+              totalRating,
+              strongAnswers,
+              needImprovement,
+              categories
+            },
+            questionFeedback: feedbackResults,
+            overallFeedback: overallFeedback
+          };
+          
+          await createPracticeSession(sessionData);
+        }
       } else {
         // Fallback detailed feedback
         const fallbackFeedback = generateFallbackDetailedFeedback(currentSession);
         setDetailedFeedback(fallbackFeedback);
-        setFeedback("Thank you for completing the mock interview! This is a demo version with sample feedback. To get AI-powered feedback, please set up your Gemini API key.");
+        setFeedback("Interview completed! Review your responses and ratings below. For AI-powered feedback, please set up your Gemini API key.");
       }
     } catch (error) {
       console.error('Error generating detailed feedback:', error);
       const fallbackFeedback = generateFallbackDetailedFeedback(currentSession);
       setDetailedFeedback(fallbackFeedback);
-      setFeedback("Thank you for completing the mock interview! We encountered an issue generating feedback, but your practice session has been recorded.");
+      setFeedback("Interview completed! Review your responses and ratings below. Your practice session has been recorded.");
     } finally {
       setIsGeneratingFeedback(false);
       setShowFeedback(true);
@@ -551,19 +602,19 @@ Conversation so far:
     
     const categories = ['Communication', 'Technical Knowledge', 'Problem Solving', 'Collaboration', 'Experience'];
     const sampleExpectedAnswers = [
-      "I was motivated by a passion for building user interfaces and creating seamless web experiences.",
-      "I handled a challenging bug by debugging with browser dev tools, researching the issue, and collaborating with my team.",
-      "I stay updated through tech blogs, documentation, and contributing to open source projects.",
-      "I managed a project by using version control, clear communication, and agile methodologies.",
-      "My long-term goals include mastering modern frameworks, leading frontend teams, and contributing to innovative web products."
+      "Demonstrate passion for the field with specific examples of projects or experiences that motivated your career choice.",
+      "Show problem-solving approach: identify the issue, research solutions, implement fixes, and document the process.",
+      "Mention specific resources: industry blogs, documentation, conferences, online courses, and community involvement.",
+      "Highlight project management skills: planning, communication, version control, testing, and team collaboration.",
+      "Discuss career goals with specific milestones: skill development, leadership roles, and industry contributions."
     ];
     
     return userMessages.map((userMsg, index) => ({
       question: assistantMessages[index]?.content || `Question ${index + 1}`,
       userAnswer: userMsg.content,
-      expectedAnswer: sampleExpectedAnswers[index] || "A comprehensive answer demonstrating frontend knowledge and experience",
+      expectedAnswer: sampleExpectedAnswers[index] || "Provide specific examples and demonstrate relevant knowledge and experience",
       rating: Math.floor(Math.random() * 3) + 3, // Random rating between 3-5
-      feedback: `Good response showing ${categories[index % categories.length].toLowerCase()}. Consider providing more specific examples related to frontend development.`,
+      feedback: `Good response. Consider adding more specific examples and technical details to strengthen your answer.`,
       category: categories[index % categories.length]
     }));
   };
@@ -594,6 +645,54 @@ Conversation so far:
     setApiTestResult(isWorking ? 'API is working! ✅' : 'API test failed ❌');
   };
 
+  // 2. Add a function to save the session
+  const handleSaveSession = async () => {
+    if (user && detailedFeedback.length > 0) {
+      try {
+        // Calculate performance metrics
+        const totalRating = detailedFeedback.reduce((sum, item) => sum + item.rating, 0);
+        const averageRating = totalRating / detailedFeedback.length;
+        const strongAnswers = detailedFeedback.filter(item => item.rating >= 4).length;
+        const needImprovement = detailedFeedback.filter(item => item.rating <= 3).length;
+        const categories = {
+          Communication: 0,
+          TechnicalKnowledge: 0,
+          ProblemSolving: 0,
+          Collaboration: 0,
+          Experience: 0
+        };
+        detailedFeedback.forEach(item => {
+          if (categories.hasOwnProperty(item.category as keyof typeof categories)) {
+            categories[item.category as keyof typeof categories] += item.rating;
+          }
+        });
+        // Only store userId, performanceSummary, and averageRating
+        const sessionData = {
+          userId: user.uid,
+          performanceSummary: {
+            totalRating,
+            strongAnswers,
+            needImprovement,
+            categories
+          },
+          averageRating: Math.round(averageRating * 10) / 10,
+          createdAt: new Date()
+        };
+        console.log('user:', user);
+        console.log('sessionData:', sessionData);
+        try {
+          await createPracticeSummary(sessionData);
+          setSaveStatus('Performance saved!');
+        } catch (error) {
+          console.error('Error saving performance:', error);
+          setSaveStatus('Error saving performance.');
+        }
+      } catch (error) {
+        setSaveStatus('Error saving performance.');
+      }
+    }
+  };
+
   // Cleanup media streams and speech recognition on component unmount
   useEffect(() => {
     return () => {
@@ -616,7 +715,7 @@ Conversation so far:
     stopMediaStream();
   };
 
-  // Text-to-speech function for Dr. Smith's responses
+  // Text-to-speech function for AI Interviewer's responses
   function speak(text: string) {
     if (voiceEnabled && 'speechSynthesis' in window) {
       const utterance = new window.SpeechSynthesisUtterance(text);
@@ -630,14 +729,16 @@ Conversation so far:
 
   return (
     <div className="max-w-4xl mx-auto p-6">
-      {/* Dr. Smith Header */}
+      {/* AI Interviewer Header */}
       <div className="max-w-2xl mx-auto p-4">
         <div className="flex items-center space-x-4 mb-4 p-4 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl shadow">
-          <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="Dr. Smith" className="w-16 h-16 rounded-full border-4 border-white shadow" />
+          <div className="w-16 h-16 rounded-full border-4 border-white shadow bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
+            <Bot className="w-8 h-8 text-white" />
+          </div>
           <div>
-            <div className="text-xl font-bold text-white">Dr. Smith</div>
-            <div className="text-sm text-blue-100">Senior Healthcare Interviewer</div>
-            <div className="text-xs text-blue-200">AI Agent</div>
+            <div className="text-xl font-bold text-white">AI Interviewer</div>
+            <div className="text-sm text-blue-100">Professional Interview Assistant</div>
+            <div className="text-xs text-blue-200">Powered by AI</div>
           </div>
           <div className="ml-auto flex items-center space-x-2">
             <div className={`w-3 h-3 rounded-full ${process.env.NEXT_PUBLIC_GEMINI_API_KEY && process.env.NEXT_PUBLIC_GEMINI_API_KEY !== 'your_gemini_api_key_here' ? 'bg-green-400' : 'bg-yellow-400'}`}></div>
@@ -741,7 +842,9 @@ Conversation so far:
                     <div className={`max-w-[75%] ${message.role === 'user' ? 'ml-auto' : ''}`}> 
                       <div className={`flex items-center mb-1 ${message.role === 'user' ? 'justify-end' : ''}`}> 
                         {message.role === 'assistant' && (
-                          <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="Dr. Smith" className="w-8 h-8 rounded-full border-2 border-blue-300 mr-2" />
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center mr-2">
+                            <Bot className="w-4 h-4 text-white" />
+                          </div>
                         )}
                         {message.role === 'user' && (
                           <div className="w-8 h-8 rounded-full bg-blue-200 flex items-center justify-center text-blue-700 font-bold mr-2">You</div>
@@ -756,10 +859,12 @@ Conversation so far:
                   <div className="flex justify-start">
                     <div className="max-w-[75%]">
                       <div className="flex items-center mb-1">
-                        <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="Dr. Smith" className="w-8 h-8 rounded-full border-2 border-blue-300 mr-2" />
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center mr-2">
+                          <Bot className="w-4 h-4 text-white" />
+                        </div>
                         <span className="text-xs text-gray-400">...</span>
                       </div>
-                      <div className="rounded-2xl px-4 py-3 bg-gray-100 text-gray-800 animate-pulse">Dr. Smith is thinking...</div>
+                      <div className="rounded-2xl px-4 py-3 bg-gray-100 text-gray-800 animate-pulse">AI Interviewer is thinking...</div>
                     </div>
                   </div>
                 )}
@@ -796,17 +901,17 @@ Conversation so far:
                   Clear
                 </button>
               </div>
-              <div className="mt-2 text-xs text-gray-500">Your answer will be sent to Dr. Smith. You can continue speaking to add more, or clear to start over.</div>
+              <div className="mt-2 text-xs text-gray-500">Your answer will be sent to AI Interviewer. You can continue speaking to add more, or clear to start over.</div>
             </div>
 
             {/* Controls */}
             <div className="flex justify-between items-center mt-6">
               <button
-                onClick={endInterview}
+                onClick={generateFeedback}
                 className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm"
                 disabled={!currentSession.isActive}
               >
-                End Interview
+                Result Interview
               </button>
               <button
                 onClick={resetInterview}
@@ -937,9 +1042,10 @@ Conversation so far:
                 </>
               )}
               
+              {/* 3. Add the Save button and status message to the feedback/results section */}
               <div className="mt-6 flex space-x-3">
                 <button
-                  onClick={resetInterview}
+                  onClick={startNewInterview}
                   className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                 >
                   Start New Interview
@@ -950,6 +1056,16 @@ Conversation so far:
                 >
                   Review Interview
                 </button>
+                <button
+                  onClick={handleSaveSession}
+                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                  disabled={!!saveStatus}
+                >
+                  Save
+                </button>
+                {saveStatus && (
+                  <span className="ml-4 text-green-700 font-semibold">{saveStatus}</span>
+                )}
               </div>
             </div>
           </div>

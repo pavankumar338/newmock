@@ -238,20 +238,20 @@ Provide the response as valid JSON only:`;
 
   async generateInterviewFeedback(context: InterviewContext): Promise<string> {
     try {
-      const prompt = `You are an expert healthcare recruiter providing feedback on a mock interview for a ${context.role} position.
+      const prompt = `You are an expert interviewer providing a brief assessment of a mock interview for a ${context.role} position.
 
-Based on the following interview conversation, provide constructive feedback including:
-1. Strengths demonstrated
-2. Areas for improvement
-3. Overall assessment
-4. Specific recommendations
+Based on the following interview conversation, provide a concise summary with:
+1. Overall rating (1-5 scale)
+2. Key strengths (2-3 points)
+3. Areas for improvement (2-3 points)
+4. Brief recommendation
 
-Keep the feedback professional, constructive, and actionable.
+Keep it concise and actionable. Maximum 200 words.
 
 Interview conversation:
 ${context.messages.map(msg => `${msg.role === 'user' ? 'Candidate' : 'Interviewer'}: ${msg.content}`).join('\n')}
 
-Please provide your feedback:`;
+Provide your assessment:`;
 
       // Ensure AI is initialized
       if (!this.ai) {
@@ -269,7 +269,7 @@ Please provide your feedback:`;
           temperature: 0.5,
           topK: 40,
           topP: 0.95,
-          maxOutputTokens: 1024,
+          maxOutputTokens: 300,
         }
       });
 

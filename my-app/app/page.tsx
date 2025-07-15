@@ -244,24 +244,6 @@ const HomePage = () => {
                 <div className="p-6">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <div className="w-8 h-8 bg-red-100 rounded-md flex items-center justify-center">
-                        <span className="text-red-600 text-lg">📊</span>
-                      </div>
-                    </div>
-                    <div className="ml-4">
-                      <h3 className="text-lg font-medium text-gray-900">Progress Tracking</h3>
-                      <p className="mt-1 text-sm text-gray-500">
-                        Track your improvement over time with detailed analytics and performance metrics.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white overflow-hidden shadow rounded-lg">
-                <div className="p-6">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
                       <div className="w-8 h-8 bg-indigo-100 rounded-md flex items-center justify-center">
                         <span className="text-indigo-600 text-lg">⚡</span>
                       </div>

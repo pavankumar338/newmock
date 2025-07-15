@@ -63,286 +63,203 @@ export const onAuthStateChange = (callback: (user: User | null) => void) => {
   return onAuthStateChanged(auth, callback);
 };
 
-// ==================== APPOINTMENTS ====================
+// ==================== PRACTICE SESSIONS ====================
 
-export interface AppointmentData {
+export interface PracticeSessionData {
   id?: string;
   userId: string;
-  doctor: string;
-  specialty: string;
-  date: string;
-  time: string;
-  type: string;
-  reason: string;
-  phone: string;
-  status: 'Pending' | 'Confirmed' | 'Cancelled' | 'Completed';
-  notes?: string;
+  role: string;
+  level: string;
+  startTime: Date;
+  endTime: Date;
+  duration: number; // in minutes
+  totalQuestions: number;
+  averageRating: number;
+  performanceSummary: {
+    totalRating: number;
+    strongAnswers: number;
+    needImprovement: number;
+    categories: {
+      Communication: number;
+      TechnicalKnowledge: number;
+      ProblemSolving: number;
+      Collaboration: number;
+      Experience: number;
+    };
+  };
+  questionFeedback: Array<{
+    question: string;
+    userAnswer: string;
+    expectedAnswer: string;
+    rating: number;
+    feedback: string;
+    category: string;
+  }>;
+  overallFeedback: string;
   createdAt?: unknown;
   updatedAt?: unknown;
 }
 
-// Create a new appointment for a specific user
-export const addAppointment = async (data: Omit<AppointmentData, 'id' | 'createdAt' | 'updatedAt'>) => {
+export const createPracticeSession = async (sessionData: Omit<PracticeSessionData, 'id' | 'createdAt' | 'updatedAt'>) => {
   try {
-    const docRef = await addDoc(collection(db, 'appointments'), {
-      ...data,
-      status: data.status || 'Pending',
+    const docRef = await addDoc(collection(db, 'practiceSessions'), {
+      ...sessionData,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
-    
-    console.log('Appointment created successfully:', docRef.id);
-    return { id: docRef.id, ...data };
+    console.log('Practice session created successfully:', docRef.id);
+    return { id: docRef.id, ...sessionData };
   } catch (error) {
-    console.error('Error creating appointment:', error);
-    throw new Error('Failed to create appointment');
+    console.error('Error creating practice session:', error);
+    throw new Error('Failed to create practice session');
   }
 };
 
-// Get all appointments for a specific user
-export const getUserAppointments = async (userId: string) => {
+export const getUserPracticeSessions = async (userId: string) => {
   try {
     const q = query(
-      collection(db, 'appointments'), 
-      where('userId', '==', userId)
-      // Temporarily removed orderBy to avoid index requirement
-      // orderBy('date', 'asc')
-    );
-    const snapshot = await getDocs(q);
-    const appointments = snapshot.docs.map(doc => ({ 
-      id: doc.id, 
-      ...doc.data() 
-    })) as AppointmentData[];
-    
-    // Sort in JavaScript instead
-    return appointments.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  } catch (error) {
-    console.error('Error fetching appointments:', error);
-    throw new Error('Failed to fetch appointments');
-  }
-};
-
-// Get appointments with pagination
-export const getUserAppointmentsPaginated = async (
-  userId: string, 
-  pageSize: number = 10, 
-  lastDoc?: QueryDocumentSnapshot
-) => {
-  try {
-    let q = query(
-      collection(db, 'appointments'),
-      where('userId', '==', userId)
-      // Temporarily removed orderBy to avoid index requirement
-      // orderBy('date', 'desc')
-    );
-
-    if (lastDoc) {
-      q = query(q, startAfter(lastDoc));
-    }
-
-    const snapshot = await getDocs(q);
-    const appointments = snapshot.docs.map(doc => ({ 
-      id: doc.id, 
-      ...doc.data() 
-    })) as AppointmentData[];
-    
-    // Sort in JavaScript instead
-    const sortedAppointments = appointments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-    return {
-      appointments: sortedAppointments.slice(0, pageSize),
-      lastDoc: snapshot.docs[snapshot.docs.length - 1],
-      hasMore: appointments.length > pageSize
-    };
-  } catch (error) {
-    console.error('Error fetching paginated appointments:', error);
-    throw new Error('Failed to fetch appointments');
-  }
-};
-
-// Get appointments by status for a specific user
-export const getUserAppointmentsByStatus = async (userId: string, status: string) => {
-  try {
-    const q = query(
-      collection(db, 'appointments'),
+      collection(db, 'practiceSessions'),
       where('userId', '==', userId),
-      where('status', '==', status)
-      // Temporarily removed orderBy to avoid index requirement
-      // orderBy('date', 'asc')
+      // orderBy('startTime', 'desc') // Temporarily removed to avoid index requirement
     );
     const snapshot = await getDocs(q);
-    const appointments = snapshot.docs.map(doc => ({ 
+    const sessions = snapshot.docs.map(doc => ({ 
       id: doc.id, 
       ...doc.data() 
-    })) as AppointmentData[];
+    })) as PracticeSessionData[];
     
     // Sort in JavaScript instead
-    return appointments.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    return sessions.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
   } catch (error) {
-    console.error('Error fetching appointments by status:', error);
-    throw new Error('Failed to fetch appointments');
+    console.error('Error fetching practice sessions:', error);
+    throw new Error('Failed to fetch practice sessions');
   }
 };
 
-// Get a specific appointment by ID
-export const getAppointmentById = async (appointmentId: string) => {
+export const getPracticeSessionById = async (sessionId: string) => {
   try {
-    const docRef = doc(db, 'appointments', appointmentId);
+    const docRef = doc(db, 'practiceSessions', sessionId);
     const docSnap = await getDoc(docRef);
     
     if (docSnap.exists()) {
-      return { id: docSnap.id, ...docSnap.data() } as AppointmentData;
+      return { id: docSnap.id, ...docSnap.data() } as PracticeSessionData;
     } else {
       return null;
     }
   } catch (error) {
-    console.error('Error fetching appointment:', error);
-    throw new Error('Failed to fetch appointment');
+    console.error('Error fetching practice session:', error);
+    throw new Error('Failed to fetch practice session');
   }
 };
 
-// Update an appointment
-export const updateAppointment = async (id: string, data: Partial<AppointmentData>) => {
+export const updatePracticeSession = async (id: string, data: Partial<PracticeSessionData>) => {
   try {
-    await updateDoc(doc(db, 'appointments', id), { 
+    await updateDoc(doc(db, 'practiceSessions', id), { 
       ...data, 
       updatedAt: serverTimestamp() 
     });
-    console.log('Appointment updated successfully:', id);
+    console.log('Practice session updated successfully:', id);
   } catch (error) {
-    console.error('Error updating appointment:', error);
-    throw new Error('Failed to update appointment');
+    console.error('Error updating practice session:', error);
+    throw new Error('Failed to update practice session');
   }
 };
 
-// Delete an appointment
-export const deleteAppointment = async (id: string) => {
+export const deletePracticeSession = async (id: string) => {
   try {
-    await deleteDoc(doc(db, 'appointments', id));
-    console.log('Appointment deleted successfully:', id);
+    await deleteDoc(doc(db, 'practiceSessions', id));
+    console.log('Practice session deleted successfully:', id);
   } catch (error) {
-    console.error('Error deleting appointment:', error);
-    throw new Error('Failed to delete appointment');
+    console.error('Error deleting practice session:', error);
+    throw new Error('Failed to delete practice session');
   }
 };
 
-// Cancel an appointment
-export const cancelAppointment = async (id: string, reason?: string) => {
+export const getUserPracticeStats = async (userId: string) => {
   try {
-    await updateDoc(doc(db, 'appointments', id), {
-      status: 'Cancelled',
-      notes: reason ? `Cancelled: ${reason}` : 'Cancelled by user',
-      updatedAt: serverTimestamp()
-    });
-    console.log('Appointment cancelled successfully:', id);
-  } catch (error) {
-    console.error('Error cancelling appointment:', error);
-    throw new Error('Failed to cancel appointment');
-  }
-};
-
-// ==================== MEDICAL RECORDS ====================
-
-export interface MedicalRecordData {
-  id?: string;
-  userId: string;
-  type: string;
-  date: string;
-  status: string;
-  fileUrl?: string;
-  description?: string;
-  createdAt?: unknown;
-  updatedAt?: unknown;
-}
-
-export const addMedicalRecord = async (data: Omit<MedicalRecordData, 'id' | 'createdAt' | 'updatedAt'>) => {
-  const docRef = await addDoc(collection(db, 'medicalRecords'), {
-    ...data,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp()
-  });
-  return { id: docRef.id, ...data };
-};
-
-export const getUserMedicalRecords = async (userId: string) => {
-  try {
-    const q = query(
-      collection(db, 'medicalRecords'), 
-      where('userId', '==', userId)
-      // Temporarily removed orderBy to avoid index requirement
-      // orderBy('date', 'desc')
-    );
-    const snapshot = await getDocs(q);
-    const records = snapshot.docs.map(doc => ({ 
-      id: doc.id, 
-      ...doc.data() 
-    })) as MedicalRecordData[];
+    const sessions = await getUserPracticeSessions(userId);
     
-    // Sort in JavaScript instead
-    return records.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    if (sessions.length === 0) {
+      return {
+        totalSessions: 0,
+        totalPracticeTime: 0,
+        averageRating: 0,
+        totalQuestions: 0,
+        rolesPracticed: new Set(),
+        categories: {
+          Communication: 0,
+          TechnicalKnowledge: 0,
+          ProblemSolving: 0,
+          Collaboration: 0,
+          Experience: 0
+        }
+      };
+    }
+    
+    const totalSessions = sessions.length;
+    const totalPracticeTime = sessions.reduce((sum, session) => sum + session.duration, 0);
+    const totalRating = sessions.reduce((sum, session) => sum + session.averageRating, 0);
+    const averageRating = totalRating / totalSessions;
+    const totalQuestions = sessions.reduce((sum, session) => sum + session.totalQuestions, 0);
+    const rolesPracticed = new Set(sessions.map(session => session.role));
+    
+    // Aggregate category ratings
+    const categories = {
+      Communication: 0,
+      TechnicalKnowledge: 0,
+      ProblemSolving: 0,
+      Collaboration: 0,
+      Experience: 0
+    };
+    
+    sessions.forEach(session => {
+      Object.keys(session.performanceSummary.categories).forEach(category => {
+        if (categories.hasOwnProperty(category)) {
+          categories[category as keyof typeof categories] += session.performanceSummary.categories[category as keyof typeof session.performanceSummary.categories];
+        }
+      });
+    });
+    
+    return {
+      totalSessions,
+      totalPracticeTime,
+      averageRating: Math.round(averageRating * 10) / 10, // Round to 1 decimal place
+      totalQuestions,
+      rolesPracticed: Array.from(rolesPracticed),
+      categories
+    };
   } catch (error) {
-    console.error('Error fetching medical records:', error);
-    throw new Error('Failed to fetch medical records');
+    console.error('Error fetching practice stats:', error);
+    throw new Error('Failed to fetch practice statistics');
   }
 };
 
-// ==================== USER PROFILES ====================
-
-export interface UserProfileData {
-  id?: string;
+// Save only performance summary and average rating for a user
+export const createPracticeSummary = async (data: {
   userId: string;
-  displayName: string;
-  email: string;
-  phone?: string;
-  dateOfBirth?: string;
-  emergencyContact?: string;
-  emergencyPhone?: string;
-  insuranceProvider?: string;
-  insuranceNumber?: string;
-  createdAt?: unknown;
-  updatedAt?: unknown;
-}
-
-export const createUserProfile = async (userId: string, data: Omit<UserProfileData, 'id' | 'createdAt' | 'updatedAt'>) => {
+  performanceSummary: {
+    totalRating: number;
+    strongAnswers: number;
+    needImprovement: number;
+    categories: {
+      Communication: number;
+      TechnicalKnowledge: number;
+      ProblemSolving: number;
+      Collaboration: number;
+      Experience: number;
+    };
+  };
+  averageRating: number;
+  createdAt: Date;
+}) => {
   try {
-    const docRef = await addDoc(collection(db, 'userProfiles'), {
-      ...data,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
+    const docRef = await addDoc(collection(db, 'practiceSessions'), {
+      ...data
     });
-    console.log('User profile created successfully:', docRef.id);
     return { id: docRef.id, ...data };
   } catch (error) {
-    console.error('Error creating user profile:', error);
-    throw new Error('Failed to create user profile');
-  }
-};
-
-export const getUserProfile = async (userId: string) => {
-  try {
-    const q = query(collection(db, 'userProfiles'), where('userId', '==', userId));
-    const snapshot = await getDocs(q);
-    if (!snapshot.empty) {
-      const doc = snapshot.docs[0];
-      return { id: doc.id, ...doc.data() } as UserProfileData;
-    }
-    return null;
-  } catch (error) {
-    console.error('Error fetching user profile:', error);
-    throw new Error('Failed to fetch user profile');
-  }
-};
-
-export const updateUserProfile = async (id: string, data: Partial<UserProfileData>) => {
-  try {
-    await updateDoc(doc(db, 'userProfiles', id), { 
-      ...data, 
-      updatedAt: serverTimestamp() 
-    });
-    console.log('User profile updated successfully:', id);
-  } catch (error) {
-    console.error('Error updating user profile:', error);
-    throw new Error('Failed to update user profile');
+    console.error('Error creating practice summary:', error);
+    throw new Error('Failed to create practice summary');
   }
 };
 
@@ -352,39 +269,19 @@ export const updateUserProfile = async (id: string, data: Partial<UserProfileDat
 export const initializeUserData = async (user: User) => {
   try {
     // Check if user profile already exists
-    const existingProfile = await getUserProfile(user.uid);
+    // const existingProfile = await getUserProfile(user.uid); // This line is removed
     
-    if (!existingProfile) {
-      // Create default user profile
-      await createUserProfile(user.uid, {
-        userId: user.uid,
-        displayName: user.displayName || 'User',
-        email: user.email || '',
-        phone: user.phoneNumber || '',
-      });
-      console.log('User data initialized for:', user.uid);
-    }
+    // if (!existingProfile) { // This line is removed
+    //   // Create default user profile // This line is removed
+    //   await createUserProfile(user.uid, { // This line is removed
+    //     userId: user.uid, // This line is removed
+    //     displayName: user.displayName || 'User', // This line is removed
+    //     email: user.email || '', // This line is removed
+    //     phone: user.phoneNumber || '', // This line is removed
+    //   }); // This line is removed
+    //   console.log('User data initialized for:', user.uid); // This line is removed
+    // } // This line is removed
   } catch (error) {
     console.error('Error initializing user data:', error);
-  }
-};
-
-// Get appointment statistics for a user
-export const getUserAppointmentStats = async (userId: string) => {
-  try {
-    const appointments = await getUserAppointments(userId);
-    
-    const stats = {
-      total: appointments.length,
-      pending: appointments.filter(apt => apt.status === 'Pending').length,
-      confirmed: appointments.filter(apt => apt.status === 'Confirmed').length,
-      cancelled: appointments.filter(apt => apt.status === 'Cancelled').length,
-      completed: appointments.filter(apt => apt.status === 'Completed').length,
-    };
-    
-    return stats;
-  } catch (error) {
-    console.error('Error fetching appointment stats:', error);
-    throw new Error('Failed to fetch appointment statistics');
   }
 };

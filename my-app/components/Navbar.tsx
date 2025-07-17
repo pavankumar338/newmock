@@ -62,9 +62,7 @@ const Navbar = () => {
                 >
                   {isLoading ? 'Signing In...' : 'Sign In'}
                 </button>
-                <button className="text-gray-700 hover:text-purple-600 px-4 py-2 rounded-md text-sm font-medium border border-gray-300 hover:border-purple-600 transition-colors">
-                  Sign Up
-                </button>
+                
               </div>
             ) : (
               <div className="flex items-center space-x-3">

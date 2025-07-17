@@ -3,9 +3,11 @@ import React, { useState } from 'react'
 import Navbar from '@/components/Navbar'
 import Dashboard from '@/components/Dashboard'
 import { useAuth } from '@/contexts/AuthContext'
+import { useGoogleAuth } from '@/hooks/useGoogleAuth'
 
 const HomePage = () => {
   const { user, loading } = useAuth();
+  const { signIn, isLoading } = useGoogleAuth();
 
   // Show loading state while checking authentication
   if (loading) {
@@ -52,8 +54,10 @@ const HomePage = () => {
                   <div className="rounded-md shadow">
                     <button 
                       className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 md:py-4 md:text-lg md:px-10"
+                      onClick={signIn}
+                      disabled={isLoading}
                     >
-                      Start Free Practice
+                      {isLoading ? 'Signing In...' : 'Get Started'}
                     </button>
                   </div>
                   <div className="mt-3 sm:mt-0 sm:ml-3">

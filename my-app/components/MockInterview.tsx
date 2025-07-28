@@ -757,24 +757,19 @@ Conversation so far:
           <p className="text-blue-100">Practice your interview skills with AI-powered feedback</p>
           <div className="mt-2 flex items-center">
             <div className={`w-2 h-2 rounded-full mr-2 ${process.env.NEXT_PUBLIC_GEMINI_API_KEY && process.env.NEXT_PUBLIC_GEMINI_API_KEY !== 'your_gemini_api_key_here' ? 'bg-green-400' : 'bg-yellow-400'}`}></div>
-            <span className="text-xs text-blue-100">
-              {process.env.NEXT_PUBLIC_GEMINI_API_KEY && process.env.NEXT_PUBLIC_GEMINI_API_KEY !== 'your_gemini_api_key_here' 
-                ? 'AI Powered (Gemini API Connected) - Rate limit: 15 req/min' 
-                : 'Demo Mode (Using Predefined Questions)'}
-            </span>
           </div>
         </div>
 
         {/* Interview Setup */}
         {!currentSession && (
-          <div className="p-6">
+          <div className="p-6" style={{ color: '#222' }}>
             <div className="mb-6">
               <h3 className="text-lg font-semibold mb-4">Interview Configuration</h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Healthcare Role
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                    Interview Role
                   </label>
                   <select
                     value={selectedRole}
@@ -814,18 +809,6 @@ Conversation so far:
                 >
                   Start Mock Interview
                 </button>
-                
-                <div className="text-center">
-                  <button
-                    onClick={testAPI}
-                    className="text-sm text-blue-600 hover:text-blue-800 underline"
-                  >
-                    Test API Connection
-                  </button>
-                  {apiTestResult && (
-                    <p className="text-xs mt-1 text-gray-600">{apiTestResult}</p>
-                  )}
-                </div>
               </div>
             </div>
           </div>

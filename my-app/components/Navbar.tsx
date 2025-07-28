@@ -38,7 +38,7 @@ const Navbar = () => {
           {/* Logo */}
           <div className="flex-shrink-0">
             <Link href="/" className="text-2xl font-bold text-gray-900 hover:text-purple-600 transition-colors">
-              InterviewAI
+              MOCKAI
             </Link>
           </div>
 
